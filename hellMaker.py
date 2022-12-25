@@ -3,7 +3,7 @@
 import uuid, random, sys, os.path, string
 
 
-TEMPLATE_PATH = "templates/template.c"
+TEMPLATE_PATH = os.path.join(os.path.dirname(os.path.realpath(__file__)), "templates/template.c")
 
 
 class Color:
