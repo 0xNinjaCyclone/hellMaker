@@ -18,7 +18,7 @@ hellMaker is a tool for generating fully undetectable malwares for any C&C tool 
 
 ## Usage
 First, you need to create a raw shellcode using the C2 tool you prefer,\
-then run the tool and enter the shellcode and Encryption key and the output filename.\
+then run the tool and enter the shellcode and Encryption key and the output filename.
 ```
 ┌──(user㉿hostname)-[~/path/to/hellMaker]
 └─$ python3 hellMaker.py

