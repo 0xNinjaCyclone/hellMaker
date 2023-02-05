@@ -38,6 +38,33 @@ CreateThreadFunc pCreateThreadFunc;
 WaitForSingleObjectFunc pWaitForSingleObjectFunc;
 CheckRemoteDebuggerPresentFunc pCheckRemoteDebuggerPresentFunc;
 
+BOOL FindProcById(DWORD dwProcId, PROCESSENTRY32 *pe32)
+{
+
+    HANDLE hSnapshot;
+    BOOL bSuccess = FALSE;
+
+    if ((hSnapshot = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0)) != INVALID_HANDLE_VALUE)
+    {
+        pe32->dwSize = sizeof(PROCESSENTRY32);
+        if (Process32First(hSnapshot, pe32)) 
+        {
+            do {
+                if (pe32->th32ProcessID == dwProcId)
+                {
+                    bSuccess = TRUE;
+                    break;
+                }
+            } while (Process32Next(hSnapshot, pe32));
+        }
+
+        CloseHandle(hSnapshot);
+    } 
+
+    return bSuccess;
+}
+
+
 void deObfuscateData(char *data)
 {
     for (int idx = 0; idx < strlen(data); idx++)
@@ -77,7 +104,22 @@ int _tmain(int argc, TCHAR **argv)
     BOOL bTrap = FALSE;
     char *pMem;
     int nMemAlloc, nCtr = 0;
+    PROCESSENTRY32 pe32;
 
+    if (FindProcById(GetCurrentProcessId(), &pe32))
+    {
+        _tprintf(TEXT("Current pid = %d, exename = %s\n"), pe32.th32ProcessID, pe32.szExeFile);
+        printf("We found the parent proccess id -> %d\n", pe32.th32ParentProcessID);
+
+        if (FindProcById(pe32.th32ParentProcessID, &pe32))
+        {
+            _tprintf(TEXT("The parent process is %s\n"), pe32.szExeFile);
+
+            /* We expect that will be run from cmd or powershell, else maybe we're inside sandbox */
+            if (!(_tcscmp(pe32.szExeFile, TEXT("cmd.exe")) == 0 || _tcscmp(pe32.szExeFile, TEXT("powershell.exe")) == 0))
+                return EXIT_FAILURE;
+        }
+    }
 
     /* Check for a non-exist file, if found it we're inside sandbox */
     if (CreateFileA(cLib2Name, GENERIC_READ, 0, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_READONLY, NULL) != INVALID_HANDLE_VALUE)
