@@ -9,6 +9,9 @@ hellMaker is a tool for generating fully undetectable malwares for any C&C tool 
 - Evade behavior analysis and sandbox using several techniques
 - Obfuscate all static stuff using random key
 - Anti Debugging
+- Process UnHooking
+- Get ntdll base address without using GetModuleHandle/LoadLibrary
+- No new thread execution
 
 ## Installation
 - Git clone this repo
