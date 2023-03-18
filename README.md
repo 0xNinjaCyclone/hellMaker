@@ -13,9 +13,10 @@ hellMaker is a tool for generating fully undetectable malwares for any C&C tool 
 - Get ntdll base address without using GetModuleHandle/LoadLibrary
 - No new thread execution
 - Both x64\x86 are supported
+- Support stageless payloads
 
 ## Note
-You must run it from cmd.exe or powershell.exe.
+You must run payloads from cmd.exe or powershell.exe.
 
 ## Installation
 - Git clone this repo
