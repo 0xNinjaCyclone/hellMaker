@@ -156,7 +156,7 @@ typedef LPVOID(WINAPI *VirtualProtectFunc)(LPVOID, SIZE_T, DWORD, PDWORD);
 DWORD g_dwNumberOfHooked = 0;
 
 char cLib1Name[] = "kernel32.dll";
-char cLib2Name[] = "amsi.dll";
+char cLib2Name[] = "mshtml.dll";
 char cCreateFileA[] = "CreateFileA";
 char cCreateProcessA[] = "CreateProcessA";
 char cReadProcessMemory[] = "ReadProcessMemory";
@@ -188,14 +188,12 @@ _PPEB GetPEB()
     */
 #if defined(_WIN64)
     /*
-        ; mov eax, gs:[60h]
-        ; mov eax, [eax+10h]
+        ; mov rax, gs:[60h]
     */
     return (_PPEB)__readgsqword(0x60);
 #else
     /*
         ; mov eax, fs:[30h]
-        ; mov eax, [eax+8]
     */
     return (_PPEB)__readfsdword(0x30);
 #endif
